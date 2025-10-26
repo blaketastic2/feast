@@ -194,39 +194,43 @@ class FeatureView(BaseFeatureView):
         self.entity_columns = []
 
         join_keys: List[str] = []
+        join_key_to_entity_map: Dict[str, Entity] = {}
         if entities:
             for entity in entities:
-                join_keys.append(entity.join_key)
-
-        # Ensure that entities have unique join keys.
-        if len(set(join_keys)) < len(join_keys):
-            raise ValueError(
-                "A feature view should not have entities that share a join key."
-            )
+                entity_join_keys = list(entity.join_keys.keys())
+                join_keys.extend(entity_join_keys)
+                # Map each join key to its entity
+                for join_key in entity_join_keys:
+                    if join_key in join_key_to_entity_map:
+                        # Raise error immediately if duplicate join keys found
+                        existing_entity = join_key_to_entity_map[join_key]
+                        raise ValueError(
+                            f"Join key '{join_key}' is shared between entities "
+                            f"'{existing_entity.name}' and '{entity.name}'. "
+                            "A feature view should not have entities that share a join key."
+                        )
+                    join_key_to_entity_map[join_key] = entity
 
         for field in schema:
             if field.name in join_keys:
                 self.entity_columns.append(field)
 
                 # Confirm that the inferred type matches the specified entity type, if it exists.
-                matching_entities = (
-                    [e for e in entities if e.join_key == field.name]
-                    if entities
-                    else []
-                )
-                assert len(matching_entities) == 1
-                entity = matching_entities[0]
-                if entity.value_type != ValueType.UNKNOWN:
-                    if from_value_type(entity.value_type) != field.dtype:
-                        raise ValueError(
-                            f"Entity {entity.name} has type {entity.value_type}, which does not match the inferred type {field.dtype}."
-                        )
+                entity = join_key_to_entity_map.get(field.name)
+                if entity is not None:
+                    # Get the value type for this specific join key
+                    join_key_value_type = entity.join_keys[field.name]
+                    if join_key_value_type != ValueType.UNKNOWN:
+                        if from_value_type(join_key_value_type) != field.dtype:
+                            raise ValueError(
+                                f"Entity {entity.name} join key '{field.name}' has type {join_key_value_type}, which does not match the inferred type {field.dtype}."
+                            )
             else:
                 features.append(field)
 
-        assert len([f for f in features if f.vector_index]) < 2, (
-            f"Only one vector feature is allowed per feature view. Please update {self.name}."
-        )
+        assert (
+            len([f for f in features if f.vector_index]) < 2
+        ), f"Only one vector feature is allowed per feature view. Please update {self.name}."
 
         # TODO(felixwang9817): Add more robust validation of features.
         if self.batch_source is not None:
@@ -261,9 +265,11 @@ class FeatureView(BaseFeatureView):
         fv = FeatureView(
             name=self.name,
             ttl=self.ttl,
-            source=self.source_views
-            if self.source_views
-            else (self.stream_source if self.stream_source else self.batch_source),
+            source=(
+                self.source_views
+                if self.source_views
+                else (self.stream_source if self.stream_source else self.batch_source)
+            ),
             schema=self.schema,
             tags=self.tags,
             online=self.online,

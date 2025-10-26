@@ -117,7 +117,7 @@ func (fs *FeatureStore) GetOnlineFeatures(
 		return nil, FeastTransformationServiceNotConfigured{}
 	}
 
-	entityNameToJoinKeyMap, expectedJoinKeysSet, err := onlineserving.GetEntityMaps(requestedFeatureViews, entities)
+	entityNameToJoinKeysMap, expectedJoinKeysSet, err := onlineserving.GetEntityMaps(requestedFeatureViews, entities)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (fs *FeatureStore) GetOnlineFeatures(
 		joinKeyToEntityValues[model.DUMMY_ENTITY_ID] = dummyEntityColumn
 	}
 
-	groupedRefs, err := onlineserving.GroupFeatureRefs(requestedFeatureViews, joinKeyToEntityValues, entityNameToJoinKeyMap, fullFeatureNames)
+	groupedRefs, err := onlineserving.GroupFeatureRefs(requestedFeatureViews, joinKeyToEntityValues, entityNameToJoinKeysMap, fullFeatureNames)
 	if err != nil {
 		return nil, err
 	}

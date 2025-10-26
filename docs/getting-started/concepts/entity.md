@@ -2,11 +2,36 @@
 
 An entity is a collection of semantically related features. Users define entities to map to the domain of their use case. For example, a ride-hailing service could have customers and drivers as their entities, which group related features that correspond to these customers and drivers.
 
+## Defining Entities
+
+Entities can be defined with one or multiple join keys. The join key(s) identify the physical primary key(s) on which feature values should be joined together to be retrieved during feature retrieval.
+
+### Single Join Key
+
 ```python
+from feast import Entity, ValueType
+
 driver = Entity(name='driver', join_keys=['driver_id'])
 ```
 
-The _entity name_ is used to uniquely identify the entity (for example to show in the experimental Web UI). The _join key_ is used to identify the physical primary key on which feature values should be joined together to be retrieved during feature retrieval.
+### Multiple Join Keys
+
+Entities can now have multiple join keys with different value types:
+
+```python
+from feast import Entity, ValueType
+
+# Entity with multiple join keys
+location = Entity(
+    name='location',
+    join_keys={
+        'location_id': ValueType.INT64,
+        'region_code': ValueType.STRING
+    }
+)
+```
+
+The _entity name_ is used to uniquely identify the entity (for example to show in the experimental Web UI). Each join key has an associated value type that defines the data type of that key.
 
 Entities are used by Feast in many contexts, as we explore below:
 

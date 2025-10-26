@@ -57,9 +57,9 @@ func TestGroupingFeatureRefs(t *testing.T) {
 				{Val: &types.Value_Int32Val{Int32Val: 4}},
 			}},
 		},
-		map[string]string{
-			"driver":   "driver_id",
-			"customer": "customer_id",
+		map[string][]string{
+			"driver":   {"driver_id"},
+			"customer": {"customer_id"},
 		},
 		true,
 	)
@@ -133,8 +133,8 @@ func TestGroupingFeatureRefsWithJoinKeyAliases(t *testing.T) {
 				{Val: &types.Value_Int32Val{Int32Val: 4}},
 			}},
 		},
-		map[string]string{
-			"location": "location_id",
+		map[string][]string{
+			"location": {"location_id"},
 		},
 		true,
 	)
@@ -176,8 +176,8 @@ func TestGroupingFeatureRefsWithMissingKey(t *testing.T) {
 				{Val: &types.Value_Int32Val{Int32Val: 0}},
 			}},
 		},
-		map[string]string{
-			"location": "location_id",
+		map[string][]string{
+			"location": {"location_id"},
 		},
 		true,
 	)

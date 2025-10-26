@@ -171,7 +171,7 @@ class OnlineStore(ABC):
         (
             join_key_values,
             grouped_refs,
-            entity_name_to_join_key_map,
+            entity_name_to_join_keys_map,
             requested_on_demand_feature_views,
             feature_refs,
             requested_result_row_names,
@@ -190,7 +190,7 @@ class OnlineStore(ABC):
             table_entity_values, idxs, output_len = utils._get_unique_entities(
                 table,
                 join_key_values,
-                entity_name_to_join_key_map,
+                entity_name_to_join_keys_map,
             )
 
             entity_key_protos = utils._get_entity_key_protos(table_entity_values)
@@ -259,7 +259,7 @@ class OnlineStore(ABC):
         (
             join_key_values,
             grouped_refs,
-            entity_name_to_join_key_map,
+            entity_name_to_join_keys_map,
             requested_on_demand_feature_views,
             feature_refs,
             requested_result_row_names,
@@ -278,7 +278,7 @@ class OnlineStore(ABC):
             table_entity_values, idxs, output_len = utils._get_unique_entities(
                 table,
                 join_key_values,
-                entity_name_to_join_key_map,
+                entity_name_to_join_keys_map,
             )
 
             entity_key_protos = utils._get_entity_key_protos(table_entity_values)
@@ -460,9 +460,9 @@ class OnlineStore(ABC):
             where the first item is the event timestamp for the row, and the second item is a dict of feature
             name to embeddings.
         """
-        assert embedding is not None or query_string is not None, (
-            "Either embedding or query_string must be specified"
-        )
+        assert (
+            embedding is not None or query_string is not None
+        ), "Either embedding or query_string must be specified"
         raise NotImplementedError(
             f"Online store {self.__class__.__name__} does not support online retrieval"
         )

@@ -235,8 +235,8 @@ func addStringIfNotContains(slice []string, element string) []string {
 	return slice
 }
 
-func GetEntityMaps(requestedFeatureViews []*FeatureViewAndRefs, entities []*model.Entity) (map[string]string, map[string]interface{}, error) {
-	entityNameToJoinKeyMap := make(map[string]string)
+func GetEntityMaps(requestedFeatureViews []*FeatureViewAndRefs, entities []*model.Entity) (map[string][]string, map[string]interface{}, error) {
+	entityNameToJoinKeysMap := make(map[string][]string)
 	expectedJoinKeysSet := make(map[string]interface{})
 
 	entitiesByName := make(map[string]*model.Entity)
@@ -255,17 +255,25 @@ func GetEntityMaps(requestedFeatureViews []*FeatureViewAndRefs, entities []*mode
 		}
 
 		for _, entityName := range featureView.EntityNames {
-			joinKey := entitiesByName[entityName].JoinKey
-			entityNameToJoinKeyMap[entityName] = joinKey
+			entity := entitiesByName[entityName]
+			// Get all join keys for this entity
+			entityJoinKeys := make([]string, 0, len(entity.JoinKeys))
+			for joinKey := range entity.JoinKeys {
+				entityJoinKeys = append(entityJoinKeys, joinKey)
+			}
+			entityNameToJoinKeysMap[entityName] = entityJoinKeys
 
-			if alias, ok := joinKeyToAliasMap[joinKey]; ok {
-				expectedJoinKeysSet[alias] = nil
-			} else {
-				expectedJoinKeysSet[joinKey] = nil
+			// Add all join keys to expected set
+			for _, joinKey := range entityJoinKeys {
+				if alias, ok := joinKeyToAliasMap[joinKey]; ok {
+					expectedJoinKeysSet[alias] = nil
+				} else {
+					expectedJoinKeysSet[joinKey] = nil
+				}
 			}
 		}
 	}
-	return entityNameToJoinKeyMap, expectedJoinKeysSet, nil
+	return entityNameToJoinKeysMap, expectedJoinKeysSet, nil
 }
 
 func ValidateEntityValues(joinKeyValues map[string]*prototypes.RepeatedValue,
@@ -520,7 +528,7 @@ func entityKeysToProtos(joinKeyValues map[string]*prototypes.RepeatedValue) []*p
 
 func GroupFeatureRefs(requestedFeatureViews []*FeatureViewAndRefs,
 	joinKeyValues map[string]*prototypes.RepeatedValue,
-	entityNameToJoinKeyMap map[string]string,
+	entityNameToJoinKeysMap map[string][]string,
 	fullFeatureNames bool,
 ) (map[string]*GroupedFeaturesPerEntitySet,
 	error,
@@ -532,7 +540,9 @@ func GroupFeatureRefs(requestedFeatureViews []*FeatureViewAndRefs,
 		fv := featuresAndView.View
 		featureNames := featuresAndView.FeatureRefs
 		for _, entityName := range fv.EntityNames {
-			joinKeys = append(joinKeys, entityNameToJoinKeyMap[entityName])
+			// Get all join keys for this entity
+			entityJoinKeys := entityNameToJoinKeysMap[entityName]
+			joinKeys = append(joinKeys, entityJoinKeys...)
 		}
 
 		groupKeyBuilder := make([]string, 0)

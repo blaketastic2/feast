@@ -158,9 +158,14 @@ def _get_column_names(
 
     from feast.feature_view import DUMMY_ENTITY_ID
 
-    join_keys = [
-        entity.join_key for entity in entities if entity.join_key != DUMMY_ENTITY_ID
-    ]
+    # Get all join keys from all entities
+    join_keys = []
+    for entity in entities:
+        # Skip dummy entity
+        if DUMMY_ENTITY_ID in entity.join_keys:
+            continue
+        # Add all join keys for this entity
+        join_keys.extend(entity.join_keys.keys())
     if feature_view.batch_source.field_mapping is not None:
         reverse_field_mapping = {
             v: k for k, v in feature_view.batch_source.field_mapping.items()
@@ -747,11 +752,15 @@ def _augment_response_with_on_demand_transforms(
 
                 proto_values.append(
                     python_values_to_proto_values(
-                        feature_vector
-                        if isinstance(feature_vector, list)
-                        else [feature_vector]
-                        if odfv.mode == "python"
-                        else feature_vector.to_numpy(),
+                        (
+                            feature_vector
+                            if isinstance(feature_vector, list)
+                            else (
+                                [feature_vector]
+                                if odfv.mode == "python"
+                                else feature_vector.to_numpy()
+                            )
+                        ),
                         feature_type,
                     )
                 )
@@ -773,25 +782,33 @@ def _get_entity_maps(
     registry,
     project,
     feature_views,
-) -> Tuple[Dict[str, str], Dict[str, ValueType], Set[str]]:
+) -> Tuple[Dict[str, List[str]], Dict[str, ValueType], Set[str]]:
     # TODO(felixwang9817): Support entities that have different types for different feature views.
     entities = registry.list_entities(project, allow_cache=True)
-    entity_name_to_join_key_map: Dict[str, str] = {}
+    entity_name_to_join_keys_map: Dict[str, List[str]] = {}
     entity_type_map: Dict[str, ValueType] = {}
+
+    # Build entity name to join keys mapping
     for entity in entities:
-        entity_name_to_join_key_map[entity.name] = entity.join_key
+        entity_name_to_join_keys_map[entity.name] = list(entity.join_keys.keys())
+
     for feature_view in feature_views:
         for entity_name in feature_view.entities:
             entity = registry.get_entity(entity_name, project, allow_cache=True)
-            # User directly uses join_key as the entity reference in the entity_rows for the
-            # entity mapping case.
-            entity_name = feature_view.projection.join_key_map.get(
-                entity.join_key, entity.name
-            )
-            join_key = feature_view.projection.join_key_map.get(
-                entity.join_key, entity.join_key
-            )
-            entity_name_to_join_key_map[entity_name] = join_key
+
+            # Get all join keys for this entity
+            entity_join_keys = list(entity.join_keys.keys())
+
+            # Apply join key mapping for each join key
+            mapped_join_keys = []
+            for join_key in entity_join_keys:
+                mapped_join_key = feature_view.projection.join_key_map.get(
+                    join_key, join_key
+                )
+                mapped_join_keys.append(mapped_join_key)
+
+            # Store the mapped join keys for this entity
+            entity_name_to_join_keys_map[entity_name] = mapped_join_keys
 
         for entity_column in feature_view.entity_columns:
             dtype = entity_column.dtype.to_value_type()
@@ -800,22 +817,27 @@ def _get_entity_maps(
             )
             entity_type_map[entity_join_key_column_name] = dtype
 
+    # Flatten all join keys for the set
+    all_join_keys = set()
+    for join_keys in entity_name_to_join_keys_map.values():
+        all_join_keys.update(join_keys)
+
     return (
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         entity_type_map,
-        set(entity_name_to_join_key_map.values()),
+        all_join_keys,
     )
 
 
 def _get_table_entity_values(
     table: "FeatureView",
-    entity_name_to_join_key_map: Dict[str, str],
+    entity_name_to_join_keys_map: Dict[str, List[str]],
     join_key_proto_values: Dict[str, List[ValueProto]],
 ) -> Dict[str, List[ValueProto]]:
     # The correct join_keys expected by the OnlineStore for this Feature View.
-    table_join_keys = [
-        entity_name_to_join_key_map[entity_name] for entity_name in table.entities
-    ]
+    table_join_keys = []
+    for entity_name in table.entities:
+        table_join_keys.extend(entity_name_to_join_keys_map[entity_name])
 
     # If the FeatureView has a Projection then the join keys may be aliased.
     alias_to_join_key_map = {v: k for k, v in table.projection.join_key_map.items()}
@@ -833,7 +855,7 @@ def _get_table_entity_values(
 def _get_unique_entities(
     table: "FeatureView",
     join_key_values: Dict[str, List[ValueProto]],
-    entity_name_to_join_key_map: Dict[str, str],
+    entity_name_to_join_keys_map: Dict[str, List[str]],
 ) -> Tuple[Tuple[Dict[str, ValueProto], ...], Tuple[List[int], ...], int]:
     """Return the set of unique composite Entities for a Feature View and the indexes at which they appear.
 
@@ -844,11 +866,13 @@ def _get_unique_entities(
     # Get the correct set of entity values with the correct join keys.
     table_entity_values = _get_table_entity_values(
         table,
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         join_key_values,
     )
     # Validate that all expected join keys exist and have non-empty values.
-    expected_keys = set(entity_name_to_join_key_map.values())
+    expected_keys = set()
+    for entity_name in table.entities:
+        expected_keys.update(entity_name_to_join_keys_map[entity_name])
     expected_keys.discard("__dummy_id")
     missing_keys = sorted(
         list(set([key for key in expected_keys if key not in table_entity_values]))
@@ -1228,7 +1252,7 @@ def _get_online_request_context(
     )
 
     (
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         entity_type_map,
         join_keys_set,
     ) = _get_entity_maps(registry, project, requested_feature_views)
@@ -1264,7 +1288,7 @@ def _get_online_request_context(
     return (
         _feature_refs,
         requested_on_demand_feature_views,
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         entity_type_map,
         join_keys_set,
         grouped_refs,
@@ -1289,7 +1313,7 @@ def _prepare_entities_to_read_from_online_store(
     (
         feature_refs,
         requested_on_demand_feature_views,
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         entity_type_map,
         join_keys_set,
         grouped_refs,
@@ -1347,9 +1371,16 @@ def _prepare_entities_to_read_from_online_store(
             join_key = join_key_or_entity_name
             requested_result_row_names.add(join_key)
             join_key_values[join_key] = values
-        elif join_key_or_entity_name in entity_name_to_join_key_map:
-            # It's an entity name (deprecated)
-            join_key = entity_name_to_join_key_map[join_key_or_entity_name]
+        elif join_key_or_entity_name in entity_name_to_join_keys_map:
+            # It's an entity name (deprecated) - get the first join key for backward compatibility
+            join_keys = entity_name_to_join_keys_map[join_key_or_entity_name]
+            if len(join_keys) > 1:
+                warnings.warn(
+                    f"Entity '{join_key_or_entity_name}' has multiple join keys: {join_keys}. "
+                    f"Using the first one '{join_keys[0]}' for backward compatibility. "
+                    "Please specify join keys directly instead of entity names."
+                )
+            join_key = join_keys[0]
             warnings.warn("Using entity name is deprecated. Use join_key instead.")
             requested_result_row_names.add(join_key)
             join_key_values[join_key] = values
@@ -1376,7 +1407,7 @@ def _prepare_entities_to_read_from_online_store(
     return (
         join_key_values,
         grouped_refs,
-        entity_name_to_join_key_map,
+        entity_name_to_join_keys_map,
         requested_on_demand_feature_views,
         feature_refs,
         requested_result_row_names,

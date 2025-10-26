@@ -38,13 +38,13 @@ message EntitySpecV2 {
     // Name of Feast project that this feature table belongs to.
     string project = 9;
 
-    // Type of the entity.
+    // Type of the entity (DEPRECATED: Use join_keys instead).
     feast.types.ValueType.Enum value_type = 2;
 
     // Description of the entity.
     string description = 3;
 
-    // Join key for the entity (i.e. name of the column the entity maps to).
+    // Join key for the entity (DEPRECATED: Use join_keys instead).
     string join_key = 4;
 
     // User defined metadata
@@ -52,6 +52,21 @@ message EntitySpecV2 {
 
     // Owner of the entity.
     string owner = 10;
+
+    // Join keys for the entity with their types.
+    // Key: join key name, Value: JoinKeySpec containing type and metadata.
+    map<string, JoinKeySpec> join_keys = 11;
+}
+
+message JoinKeySpec {
+    // Name of the join key.
+    string name = 1;
+    
+    // Type of the join key.
+    feast.types.ValueType.Enum value_type = 2;
+    
+    // Description of the join key.
+    string description = 3;
 }
 
 message EntityMeta {

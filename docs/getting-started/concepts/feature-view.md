@@ -117,6 +117,17 @@ location_stats_fv= FeatureView(
 {% tab title="temperatures_feature_service.py" %}
 ```python
 from location_stats_feature_view import location_stats_fv
+from feast import ValueType
+
+# Example using multiple join keys in an entity
+# Note: When using multiple join keys, you'd need to define the entity with a dict format
+multi_key_location = Entity(
+    name="location",
+    join_keys={
+        "location_id": ValueType.INT64,
+        "region_code": ValueType.STRING
+    }
+)
 
 temperatures_fs = FeatureService(
     name="temperatures",

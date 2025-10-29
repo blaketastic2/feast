@@ -72,6 +72,23 @@ class EntitySpecV2(google.protobuf.message.Message):
         ) -> None: ...
         def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
 
+    class JoinKeysEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        @property
+        def value(self) -> global___JoinKeySpec: ...
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: global___JoinKeySpec | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["value", b"value"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
     NAME_FIELD_NUMBER: builtins.int
     PROJECT_FIELD_NUMBER: builtins.int
     VALUE_TYPE_FIELD_NUMBER: builtins.int
@@ -79,21 +96,27 @@ class EntitySpecV2(google.protobuf.message.Message):
     JOIN_KEY_FIELD_NUMBER: builtins.int
     TAGS_FIELD_NUMBER: builtins.int
     OWNER_FIELD_NUMBER: builtins.int
+    JOIN_KEYS_FIELD_NUMBER: builtins.int
     name: builtins.str
     """Name of the entity."""
     project: builtins.str
     """Name of Feast project that this feature table belongs to."""
     value_type: feast.types.Value_pb2.ValueType.Enum.ValueType
-    """Type of the entity."""
+    """Type of the entity (DEPRECATED: Use join_keys instead)."""
     description: builtins.str
     """Description of the entity."""
     join_key: builtins.str
-    """Join key for the entity (i.e. name of the column the entity maps to)."""
+    """Join key for the entity (DEPRECATED: Use join_keys instead)."""
     @property
     def tags(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
         """User defined metadata"""
     owner: builtins.str
     """Owner of the entity."""
+    @property
+    def join_keys(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___JoinKeySpec]:
+        """Join keys for the entity with their types.
+        Key: join key name, Value: JoinKeySpec containing type and metadata.
+        """
     def __init__(
         self,
         *,
@@ -104,10 +127,34 @@ class EntitySpecV2(google.protobuf.message.Message):
         join_key: builtins.str = ...,
         tags: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         owner: builtins.str = ...,
+        join_keys: collections.abc.Mapping[builtins.str, global___JoinKeySpec] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["description", b"description", "join_key", b"join_key", "name", b"name", "owner", b"owner", "project", b"project", "tags", b"tags", "value_type", b"value_type"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["description", b"description", "join_key", b"join_key", "join_keys", b"join_keys", "name", b"name", "owner", b"owner", "project", b"project", "tags", b"tags", "value_type", b"value_type"]) -> None: ...
 
 global___EntitySpecV2 = EntitySpecV2
+
+class JoinKeySpec(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: builtins.int
+    VALUE_TYPE_FIELD_NUMBER: builtins.int
+    DESCRIPTION_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    """Name of the join key."""
+    value_type: feast.types.Value_pb2.ValueType.Enum.ValueType
+    """Type of the join key."""
+    description: builtins.str
+    """Description of the join key."""
+    def __init__(
+        self,
+        *,
+        name: builtins.str = ...,
+        value_type: feast.types.Value_pb2.ValueType.Enum.ValueType = ...,
+        description: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["description", b"description", "name", b"name", "value_type", b"value_type"]) -> None: ...
+
+global___JoinKeySpec = JoinKeySpec
 
 class EntityMeta(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
